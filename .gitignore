@@ -60,3 +60,9 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# UNIX temp files
+*~
+
+# Sym link to data folder
+data

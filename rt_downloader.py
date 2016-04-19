@@ -3,11 +3,15 @@ Download real-time stock data from the Yahoo Finance API
 """
 import urllib
 import time
+import os
+import datetime
 
 # SYMBOL_FILE_NAME = "NYSE.txt"
-SYMBOL_FILE_NAME = "/media/gerardsimons/WD/Documents/Big Stock/downloader/data/historical/proper/symbols.txt"
+DATA_ROOT = "/media/pi/WD/Documents/Big Stock/downloader/data/"
+SYMBOL_FILE_NAME = DATA_ROOT + "historical/proper/symbols.txt"
 URL_FMT = "http://finance.yahoo.com/d/quotes.csv?s=%s&f=%s"
-OUTPUT_FILE_FMT = '/media/gerardsimons/WD/Documents/Big Stock/downloader/data/realtime/round=%d_chunk=%d.csv'
+OUTPUT_DIR = DATA_ROOT + "realtime/"
+OUTPUT_FILE_FMT = "round=%d_chunk=%d.csv"
 MAX_SYMBOLS = 10
 
 class RTDownloader(object):
@@ -28,6 +32,9 @@ class RTDownloader(object):
         self.symbols = symbols
         self.special_tags = special_tags
 
+	timestamp = str(int(time.time()))
+	self.dir = OUTPUT_DIR + timestamp + "/"
+	os.mkdir(self.dir)
 
     def download_stock_data(self, max_symbols = 400):
         """
@@ -45,30 +52,36 @@ class RTDownloader(object):
         symbol_chunks.append(self.symbols[(steps * max_symbols):])
         chunk = 0
 
-        print "Download real-time stocks with special tags '%s'" % (self.special_tags)
-        print "Total chunks = %d of size %d each." % (len(symbol_chunks), len(symbol_chunks[0]))
+        print "Start download real-time stocks with special tags '%s'" % (self.special_tags)
+        print "Chunks = %d x %d." % (len(symbol_chunks), len(symbol_chunks[0]))
+	print "-" * 50
 
         start_time = time.time()
 
         while True:
+	    chunk = 0
             for symbol_chunk in symbol_chunks:
-                print len(symbol_chunk)
+                #print len(symbol_chunk)
                 interval = time.time() - start_time
 
                 # Create a plus sign separated string from all the symbols
                 symbol_string = "+".join(symbol_chunk)
                 url = URL_FMT % (symbol_string, self.special_tags)
-                output_path = OUTPUT_FILE_FMT % (self.counter, chunk)
+                output_path = self.dir + OUTPUT_FILE_FMT % (self.counter, chunk)
+		
+		try:
+                	urllib.urlretrieve(url, output_path)
+		except IOError:
+			time.sleep(60) # Wait a minute 
+		else: # If everything went ok
+			print "%s: Chunk %d.%d fetched." % (datetime.datetime.fromtimestamp(int(time.time())), self.counter, chunk)
+			print "Elapsed time = %f" % interval
+			print "Chunk size = %d" % len(symbol_chunk)
+	                print "File path = %s" % (output_path)
 
-                # print "Fetching from '%s'" % (url)
-                print "Writing to file '%s'" % (output_path)
+        	        chunk += 1
 
-                urllib.urlretrieve(url, output_path)
-
-                print "Download round %d / chunk %d finished. Elapsed time = %f" % (self.counter, chunk, interval)
-                chunk += 1
-
-                time.sleep(self.sleep_interval)
+            time.sleep(self.sleep_interval)
             self.counter += 1
 
 def main():
@@ -95,7 +108,7 @@ def main():
     # symbols = ["MSFT", "GOOG", "GE"] # Microsoft, Google and General Electric
 
     # Start downloading data for the symbols at 10 minute intervals
-    downloader = RTDownloader(6000, symbols, special_tags)
+    downloader = RTDownloader(600, symbols, special_tags)
     downloader.download_stock_data()
 
 
